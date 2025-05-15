@@ -62,17 +62,6 @@ const todoSlice = createSlice({
   name: 'todo',
   initialState,
   reducers: {
-    addList: (state, action: PayloadAction<{ name: string }>) => {
-      state.lists.push({
-        id: crypto.randomUUID(),
-        name: action.payload.name,
-        tasks: [],
-      });
-      saveState(state);
-    },
-    setActiveList: (state, action: PayloadAction<string>) => {
-      state.activeList = action.payload;
-    },
     addTask: (state, action: PayloadAction<{ content: string; category: 'personal' | 'freelance' | 'work'; time: string }>) => {
       const list = state.lists.find(list => list.id === state.activeList);
       if (list) {
@@ -116,8 +105,6 @@ const todoSlice = createSlice({
 });
 
 export const {
-  addList,
-  setActiveList,
   addTask,
   toggleTask,
   deleteTask,
