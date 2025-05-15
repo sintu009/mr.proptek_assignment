@@ -21,51 +21,68 @@ interface TodoState {
   activeList: string | null;
 }
 
+const defaultState: TodoState = {
+  lists: [
+    {
+      id: 'default',
+      name: 'Today Tasks',
+      tasks: [
+        { 
+          id: '1', 
+          content: 'work out', 
+          time: '8:00 am', 
+          category: 'personal', 
+          completed: true,
+          subtasks: []
+        },
+        { 
+          id: '2', 
+          content: 'Design team meeting', 
+          time: '2:00 pm', 
+          category: 'freelance', 
+          completed: false,
+          subtasks: []
+        },
+      ],
+    },
+  ],
+  searchQuery: '',
+  activeList: 'default',
+};
+
 const loadState = (): TodoState => {
+  if (typeof window === 'undefined') return defaultState;
+  
   try {
     const serializedState = localStorage.getItem('todoState');
-    if (serializedState === null) {
-      return {
-        lists: [
-          {
-            id: 'default',
-            name: 'Today Tasks',
-            tasks: [
-              { 
-                id: '1', 
-                content: 'work out', 
-                time: '8:00 am', 
-                category: 'personal', 
-                completed: true,
-                subtasks: []
-              },
-              { 
-                id: '2', 
-                content: 'Design team meeting', 
-                time: '2:00 pm', 
-                category: 'freelance', 
-                completed: false,
-                subtasks: []
-              },
-            ],
-          },
-        ],
-        searchQuery: '',
-        activeList: 'default',
-      };
-    }
-    return JSON.parse(serializedState);
+    if (!serializedState) return defaultState;
+    
+    const parsedState = JSON.parse(serializedState);
+    return {
+      ...defaultState,
+      ...parsedState,
+      lists: parsedState.lists.map((list: TodoList) => ({
+        ...list,
+        tasks: list.tasks.map((task: Task) => ({
+          ...task,
+          subtasks: task.subtasks || []
+        }))
+      }))
+    };
   } catch (err) {
-    return { lists: [], searchQuery: '', activeList: null };
+    console.error('Error loading state:', err);
+    return defaultState;
   }
 };
 
 const saveState = (state: TodoState) => {
+  if (typeof window === 'undefined') return;
+  
   try {
     const serializedState = JSON.stringify(state);
     localStorage.setItem('todoState', serializedState);
   } catch (err) {
-    // Handle errors here
+    console.error('Error saving state:', err);
   }
 };
 
@@ -150,8 +167,8 @@ const todoSlice = createSlice({
       if (list) {
         const [removed] = list.tasks.splice(action.payload.sourceIndex, 1);
         list.tasks.splice(action.payload.destinationIndex, 0, removed);
+        saveState(state);
       }
-      saveState(state);
     },
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload;
