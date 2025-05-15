@@ -6,6 +6,7 @@ interface Task {
   time: string;
   category: 'personal' | 'freelance' | 'work';
   completed: boolean;
+  subtasks?: Task[];
 }
 
 interface TodoList {
@@ -30,10 +31,22 @@ const loadState = (): TodoState => {
             id: 'default',
             name: 'Today Tasks',
             tasks: [
-              { id: '1', content: 'work out', time: '8:00 am', category: 'personal', completed: true },
-              { id: '2', content: 'Design team meeting', time: '2:00 am', category: 'freelance', completed: false },
-              { id: '3', content: 'Hand off the project', time: '7:00 am', category: 'work', completed: false },
-              { id: '4', content: 'Hand off the project', time: '7:00 am', category: 'freelance', completed: false },
+              { 
+                id: '1', 
+                content: 'work out', 
+                time: '8:00 am', 
+                category: 'personal', 
+                completed: true,
+                subtasks: []
+              },
+              { 
+                id: '2', 
+                content: 'Design team meeting', 
+                time: '2:00 pm', 
+                category: 'freelance', 
+                completed: false,
+                subtasks: []
+              },
             ],
           },
         ],
@@ -62,33 +75,75 @@ const todoSlice = createSlice({
   name: 'todo',
   initialState,
   reducers: {
-    addTask: (state, action: PayloadAction<{ content: string; category: 'personal' | 'freelance' | 'work'; time: string }>) => {
+    addTask: (state, action: PayloadAction<{ content: string; category: 'personal' | 'freelance' | 'work'; time: string; parentTaskId?: string }>) => {
       const list = state.lists.find(list => list.id === state.activeList);
       if (list) {
-        list.tasks.push({
+        const newTask = {
           id: crypto.randomUUID(),
           ...action.payload,
           completed: false,
-        });
-      }
-      saveState(state);
-    },
-    toggleTask: (state, action: PayloadAction<{ taskId: string }>) => {
-      const list = state.lists.find(list => list.id === state.activeList);
-      if (list) {
-        const task = list.tasks.find(task => task.id === action.payload.taskId);
-        if (task) {
-          task.completed = !task.completed;
+          subtasks: [],
+        };
+
+        if (action.payload.parentTaskId) {
+          const findAndAddSubtask = (tasks: Task[]) => {
+            for (let task of tasks) {
+              if (task.id === action.payload.parentTaskId) {
+                task.subtasks = task.subtasks || [];
+                task.subtasks.push(newTask);
+                return true;
+              }
+              if (task.subtasks && findAndAddSubtask(task.subtasks)) {
+                return true;
+              }
+            }
+            return false;
+          };
+          findAndAddSubtask(list.tasks);
+        } else {
+          list.tasks.push(newTask);
         }
+        saveState(state);
       }
-      saveState(state);
     },
-    deleteTask: (state, action: PayloadAction<{ taskId: string }>) => {
+    toggleTask: (state, action: PayloadAction<{ taskId: string; parentTaskId?: string }>) => {
       const list = state.lists.find(list => list.id === state.activeList);
       if (list) {
-        list.tasks = list.tasks.filter(task => task.id !== action.payload.taskId);
+        const toggleTaskRecursive = (tasks: Task[]): boolean => {
+          for (let task of tasks) {
+            if (task.id === action.payload.taskId) {
+              task.completed = !task.completed;
+              return true;
+            }
+            if (task.subtasks && toggleTaskRecursive(task.subtasks)) {
+              return true;
+            }
+          }
+          return false;
+        };
+        toggleTaskRecursive(list.tasks);
+        saveState(state);
       }
-      saveState(state);
+    },
+    deleteTask: (state, action: PayloadAction<{ taskId: string; parentTaskId?: string }>) => {
+      const list = state.lists.find(list => list.id === state.activeList);
+      if (list) {
+        const deleteTaskRecursive = (tasks: Task[]): boolean => {
+          const taskIndex = tasks.findIndex(task => task.id === action.payload.taskId);
+          if (taskIndex !== -1) {
+            tasks.splice(taskIndex, 1);
+            return true;
+          }
+          for (let task of tasks) {
+            if (task.subtasks && deleteTaskRecursive(task.subtasks)) {
+              return true;
+            }
+          }
+          return false;
+        };
+        deleteTaskRecursive(list.tasks);
+        saveState(state);
+      }
     },
     reorderTasks: (state, action: PayloadAction<{ sourceIndex: number; destinationIndex: number }>) => {
       const list = state.lists.find(list => list.id === state.activeList);
