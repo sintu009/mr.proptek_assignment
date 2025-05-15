@@ -92,6 +92,22 @@ const todoSlice = createSlice({
   name: 'todo',
   initialState,
   reducers: {
+    addList: (state, action: PayloadAction<{ name: string }>) => {
+      const newList = {
+        id: crypto.randomUUID(),
+        name: action.payload.name,
+        tasks: [],
+      };
+      state.lists.push(newList);
+      if (!state.activeList) {
+        state.activeList = newList.id;
+      }
+      saveState(state);
+    },
+    setActiveList: (state, action: PayloadAction<string>) => {
+      state.activeList = action.payload;
+      saveState(state);
+    },
     addTask: (state, action: PayloadAction<{ content: string; category: 'personal' | 'freelance' | 'work'; time: string; parentTaskId?: string }>) => {
       const list = state.lists.find(list => list.id === state.activeList);
       if (list) {
@@ -162,6 +178,13 @@ const todoSlice = createSlice({
         saveState(state);
       }
     },
+    deleteList: (state, action: PayloadAction<{ id: string }>) => {
+      state.lists = state.lists.filter(list => list.id !== action.payload.id);
+      if (state.activeList === action.payload.id) {
+        state.activeList = state.lists[0]?.id || null;
+      }
+      saveState(state);
+    },
     reorderTasks: (state, action: PayloadAction<{ sourceIndex: number; destinationIndex: number }>) => {
       const list = state.lists.find(list => list.id === state.activeList);
       if (list) {
@@ -177,9 +200,12 @@ const todoSlice = createSlice({
 });
 
 export const {
+  addList,
+  setActiveList,
   addTask,
   toggleTask,
   deleteTask,
+  deleteList,
   reorderTasks,
   setSearchQuery,
 } = todoSlice.actions;
